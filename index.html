@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Damon Games Schedule</title>
+
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #f5f5f5;
+      margin: 0;
+      padding: 1rem;
+    }
+
+    h2 {
+      text-align: center;
+      color: #d32f2f;
+      margin-bottom: 1rem;
+    }
+
+    button {
+      display: block;
+      margin: 0 auto 1rem auto;
+      padding: 0.6rem 1rem;
+      border: none;
+      background: #d32f2f;
+      color: white;
+      border-radius: 5px;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #b71c1c;
+    }
+
+    #events {
+      max-width: 700px;
+      margin: 0 auto;
+    }
+
+    .event {
+      background: white;
+      border-radius: 10px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+
+    .title {
+      font-weight: bold;
+      font-size: 1.1rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .meta {
+      margin-top: 0.4rem;
+      font-size: 0.9rem;
+      color: #333;
+    }
+
+    a {
+      color: #1565c0;
+      text-decoration: underline;
+      word-break: break-word;
+    }
+  </style>
+</head>
+
+<body>
+  <h2>Games Schedule</h2>
+
+  <button onclick="window.print()">Print</button>
+
+  <div id="events">Loading...</div>
+
+  <script>
+    const API_URL = "https://d-games.veinoffeeling.workers.dev/games";
+
+    async function loadEvents() {
+      try {
+        const res = await fetch(API_URL);
+        const data = await res.json();
+
+        renderEvents(data);
+      } catch (err) {
+        console.error(err);
+        document.getElementById("events").innerText = "Failed to load events.";
+      }
+    }
+
+    function renderEvents(events) {
+      const container = document.getElementById("events");
+
+      if (!events || !events.length) {
+        container.innerHTML = "No events found.";
+        return;
+      }
+
+      const html = events.map(e => {
+        const title = e.title || "No Title";
+
+        const start = e.start
+          ? new Date(e.start).toLocaleString()
+          : "No date";
+
+        const description = e.description
+          ? `<div class="meta">${e.description}</div>`
+          : "";
+
+        const location = e.location
+          ? `<div class="meta">
+              📍 <a href="https://www.google.com/maps?q=${encodeURIComponent(e.location)}"
+                   target="_blank" rel="noopener noreferrer">
+                ${e.location}
+              </a>
+            </div>`
+          : "";
+
+        const links = e.url
+          ? `<div class="meta">
+              <a href="${e.url}" target="_blank" rel="noopener noreferrer">
+                Open Event
+              </a>
+            </div>`
+          : "";
+
+        return `
+          <div class="event">
+            <div class="title">${title}</div>
+            <div class="meta"><strong>${start}</strong></div>
+            ${location}
+            ${description}
+            ${links}
+          </div>
+        `;
+      }).join("");
+
+      container.innerHTML = html;
+    }
+
+    loadEvents();
+  </script>
+</body>
+</html>
