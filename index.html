@@ -65,6 +65,7 @@
       padding: 1rem;
       margin-bottom: 1rem;
       box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      border-left: 6px solid transparent;
     }
 
     .title {
@@ -94,10 +95,11 @@
   <script>
     const API_URL = "https://r-games.veinoffeeling.workers.dev/games";
 
+    // ✅ FIXED COLORS (must include #)
     const sourceColors = {
-      team1: "000000",
+      team1: "#000000",
       team2: "#9c9c9c",
-      team3: "#FFFFFF",
+      team3: "#ff9800",
       default: "#616161"
     };
 
@@ -111,9 +113,7 @@
 
         allEvents = data;
 
-        // Collect all sources
         const sources = [...new Set(allEvents.map(e => e.source || "default"))];
-
         sources.forEach(s => activeSources.add(s));
 
         renderLegend(sources);
@@ -182,13 +182,10 @@
           : "";
 
         return `
-          <div class="event" style="border-left: 6px solid ${color}">
+          <div class="event" style="border-left-color: ${color}">
             <div class="title">${title}</div>
             <div class="meta"><strong>${start}</strong></div>
             ${maps}
-            <div class="meta" style="color:${color}">
-              Source: ${e.source || "default"}
-            </div>
           </div>
         `;
       }).join("");
