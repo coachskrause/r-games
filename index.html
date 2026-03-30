@@ -16,7 +16,6 @@
     h2 {
       text-align: center;
       color: #d32f2f;
-      margin-bottom: 1rem;
     }
 
     button {
@@ -31,8 +30,28 @@
       cursor: pointer;
     }
 
-    button:hover {
-      background: #b71c1c;
+    #legend {
+      max-width: 700px;
+      margin: 0 auto 1rem auto;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+    }
+
+    .legend-item {
+      cursor: pointer;
+      padding: 6px 10px;
+      border-radius: 5px;
+      color: white;
+      font-size: 0.85rem;
+      user-select: none;
+      opacity: 1;
+      transition: opacity 0.2s;
+    }
+
+    .legend-item.disabled {
+      opacity: 0.4;
     }
 
     #events {
@@ -50,20 +69,16 @@
 
     .title {
       font-weight: bold;
-      font-size: 1.1rem;
-      margin-bottom: 0.5rem;
+      margin-bottom: 0.3rem;
     }
 
     .meta {
-      margin-top: 0.4rem;
       font-size: 0.9rem;
-      color: #333;
+      margin-top: 0.3rem;
     }
 
     a {
       color: #1565c0;
-      text-decoration: underline;
-      word-break: break-word;
     }
   </style>
 </head>
@@ -73,66 +88,107 @@
 
   <button onclick="window.print()">Print</button>
 
+  <div id="legend"></div>
   <div id="events">Loading...</div>
 
   <script>
     const API_URL = "https://r-games.veinoffeeling.workers.dev/games";
+
+    const sourceColors = {
+      team1: "000000",
+      team2: "#9c9c9c",
+      team3: "#FFFFFF",
+      default: "#616161"
+    };
+
+    let allEvents = [];
+    let activeSources = new Set();
 
     async function loadEvents() {
       try {
         const res = await fetch(API_URL);
         const data = await res.json();
 
-        renderEvents(data);
+        allEvents = data;
+
+        // Collect all sources
+        const sources = [...new Set(allEvents.map(e => e.source || "default"))];
+
+        sources.forEach(s => activeSources.add(s));
+
+        renderLegend(sources);
+        renderEvents();
       } catch (err) {
         console.error(err);
         document.getElementById("events").innerText = "Failed to load events.";
       }
     }
 
-    function renderEvents(events) {
+    function renderLegend(sources) {
+      const legend = document.getElementById("legend");
+
+      legend.innerHTML = sources.map(source => {
+        const color = sourceColors[source] || sourceColors.default;
+
+        return `
+          <div class="legend-item" 
+               style="background:${color}"
+               onclick="toggleSource('${source}', this)">
+            ${source}
+          </div>
+        `;
+      }).join("");
+    }
+
+    function toggleSource(source, el) {
+      if (activeSources.has(source)) {
+        activeSources.delete(source);
+        el.classList.add("disabled");
+      } else {
+        activeSources.add(source);
+        el.classList.remove("disabled");
+      }
+
+      renderEvents();
+    }
+
+    function renderEvents() {
       const container = document.getElementById("events");
 
-      if (!events || !events.length) {
-        container.innerHTML = "No events found.";
+      const filtered = allEvents.filter(e =>
+        activeSources.has(e.source || "default")
+      );
+
+      if (!filtered.length) {
+        container.innerHTML = "No events to display.";
         return;
       }
 
-      const html = events.map(e => {
+      const html = filtered.map(e => {
         const title = e.title || "No Title";
 
         const start = e.start
           ? new Date(e.start).toLocaleString()
           : "No date";
 
-        const description = e.description
-          ? `<div class="meta">${e.description}</div>`
-          : "";
+        const color = sourceColors[e.source] || sourceColors.default;
 
-        const location = e.location
+        const maps = e.location
           ? `<div class="meta">
-              📍 <a href="https://www.google.com/maps?q=${encodeURIComponent(e.location)}"
-                   target="_blank" rel="noopener noreferrer">
+              📍 <a href="https://www.google.com/maps?q=${encodeURIComponent(e.location)}" target="_blank">
                 ${e.location}
               </a>
             </div>`
           : "";
 
-        const links = e.url
-          ? `<div class="meta">
-              <a href="${e.url}" target="_blank" rel="noopener noreferrer">
-                Open Event
-              </a>
-            </div>`
-          : "";
-
         return `
-          <div class="event">
+          <div class="event" style="border-left: 6px solid ${color}">
             <div class="title">${title}</div>
             <div class="meta"><strong>${start}</strong></div>
-            ${location}
-            ${description}
-            ${links}
+            ${maps}
+            <div class="meta" style="color:${color}">
+              Source: ${e.source || "default"}
+            </div>
           </div>
         `;
       }).join("");
