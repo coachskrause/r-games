@@ -95,7 +95,6 @@
   <script>
     const API_URL = "https://r-games.veinoffeeling.workers.dev/games";
 
-    // ✅ FIXED COLORS (must include #)
     const sourceColors = {
       team1: "#000000",
       team2: "#9c9c9c",
@@ -113,6 +112,7 @@
 
         allEvents = data;
 
+        // Collect all sources       
         const sources = [...new Set(allEvents.map(e => e.source || "default"))];
         sources.forEach(s => activeSources.add(s));
 
