@@ -70,6 +70,11 @@ button {
   border-left: 6px solid;
 }
 
+.event.tbd {
+  opacity: 0.85;
+  border-left-style: dashed;
+}
+
 .title-row {
   display: flex;
   align-items: center;
@@ -89,6 +94,16 @@ button {
 .meta {
   font-size: 0.9rem;
   margin-top: 0.3rem;
+}
+
+.badge {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 3px 8px;
+  font-size: 0.75rem;
+  border-radius: 4px;
+  background: #eee;
+  color: #555;
 }
 </style>
 </head>
@@ -118,7 +133,7 @@ const COLORS = {
   default: "#616161"
 };
 
-// LOGOS (REPLACE WITH YOUR REAL URLs)
+// LOGOS
 const LOGOS = {
   team1: "https://raw.githubusercontent.com/coachskrause/r-games/refs/heads/main/HV-50.png",
   team2: "https://raw.githubusercontent.com/coachskrause/r-games/refs/heads/main/WLN-50.png"
@@ -127,20 +142,35 @@ const LOGOS = {
 let allEvents = [];
 let activeSources = new Set();
 
-// FORCE BUTTON ORDER
 const SOURCE_ORDER = ["team1", "team2"];
 
+// ✅ Detect all-day
+function isAllDay(dateStr) {
+  const d = new Date(dateStr);
+  return d.getHours() === 0 && d.getMinutes() === 0 && d.getSeconds() === 0;
+}
+
+// ✅ Format date with TBD support
 function formatDate(dateStr) {
   const d = new Date(dateStr);
 
-  return d.toLocaleString(undefined, {
+  const datePart = d.toLocaleDateString(undefined, {
     year: "numeric",
     month: "short",
-    day: "numeric",
+    day: "numeric"
+  });
+
+  if (isAllDay(dateStr)) {
+    return `${datePart}`;
+  }
+
+  const timePart = d.toLocaleTimeString(undefined, {
     hour: "numeric",
     minute: "2-digit",
     hour12: true
   });
+
+  return `${datePart}, ${timePart}`;
 }
 
 function mapsLink(location) {
@@ -151,10 +181,21 @@ async function load() {
   const res = await fetch(API_URL);
   const data = await res.json();
 
+  // ✅ SORT: date first, then push TBD to bottom
+  data.sort((a, b) => {
+    const aDate = new Date(a.start);
+    const bDate = new Date(b.start);
+
+    if (aDate.toDateString() === bDate.toDateString()) {
+      return isAllDay(a.start) - isAllDay(b.start);
+    }
+
+    return aDate - bDate;
+  });
+
   allEvents = data;
 
   const sources = [...new Set(allEvents.map(e => e.source || "default"))];
-
   const orderedSources = SOURCE_ORDER.filter(s => sources.includes(s));
 
   orderedSources.forEach(s => activeSources.add(s));
@@ -208,16 +249,21 @@ function renderEvents() {
 
   const html = filtered.map(e => {
     const color = COLORS[e.source] || COLORS.default;
+    const tbd = isAllDay(e.start);
 
     return `
-      <div class="event" style="border-left-color:${color}">
+      <div class="event ${tbd ? "tbd" : ""}" style="border-left-color:${color}">
         
         <div class="title-row">
           ${LOGOS[e.source] ? `<img src="${LOGOS[e.source]}" alt="">` : ""}
           <div class="title">${e.title}</div>
         </div>
 
-        <div class="meta">${formatDate(e.start)}</div>
+        <div class="meta">
+          ${formatDate(e.start)} ${tbd ? "(TBD)" : ""}
+        </div>
+
+        ${tbd ? `<div class="badge">Game Time Not Set</div>` : ""}
 
         ${
           e.location
