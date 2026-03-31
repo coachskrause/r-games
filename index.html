@@ -1,199 +1,243 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Robert Games Schedule</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Robert Games Schedule</title>
 
-  <style>
-    body {
-      font-family: sans-serif;
-      background: #f5f5f5;
-      margin: 0;
-      padding: 1rem;
-    }
+<style>
+body {
+  font-family: sans-serif;
+  background: #f5f5f5;
+  margin: 0;
+  padding: 1rem;
+}
 
-    h2 {
-      text-align: center;
-      color: #d32f2f;
-    }
+h2 {
+  text-align: center;
+  color: #d32f2f;
+}
 
-    button {
-      display: block;
-      margin: 0 auto 1rem auto;
-      padding: 0.6rem 1rem;
-      border: none;
-      background: #d32f2f;
-      color: white;
-      border-radius: 5px;
-      font-size: 1rem;
-      cursor: pointer;
-    }
+button {
+  display: block;
+  margin: 0 auto 1rem auto;
+  padding: 0.6rem 1rem;
+  border: none;
+  background: #d32f2f;
+  color: white;
+  border-radius: 5px;
+}
 
-    #legend {
-      max-width: 700px;
-      margin: 0 auto 1rem auto;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      justify-content: center;
-    }
+#legend {
+  max-width: 700px;
+  margin: 0 auto 1rem auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
 
-    .legend-item {
-      cursor: pointer;
-      padding: 6px 10px;
-      border-radius: 5px;
-      color: white;
-      font-size: 0.85rem;
-      user-select: none;
-      opacity: 1;
-      transition: opacity 0.2s;
-    }
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 5px;
+  color: white;
+  cursor: pointer;
+}
 
-    .legend-item.disabled {
-      opacity: 0.4;
-    }
+.legend-item img {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
 
-    #events {
-      max-width: 700px;
-      margin: 0 auto;
-    }
+.legend-item.disabled {
+  opacity: 0.4;
+}
 
-    .event {
-      background: white;
-      border-radius: 10px;
-      padding: 1rem;
-      margin-bottom: 1rem;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-      border-left: 6px solid transparent;
-    }
+#events {
+  max-width: 700px;
+  margin: 0 auto;
+}
 
-    .title {
-      font-weight: bold;
-      margin-bottom: 0.3rem;
-    }
+.event {
+  background: white;
+  border-radius: 10px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border-left: 6px solid;
+}
 
-    .meta {
-      font-size: 0.9rem;
-      margin-top: 0.3rem;
-    }
+.title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 
-    a {
-      color: #1565c0;
-    }
-  </style>
+.title-row img {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+}
+
+.title {
+  font-weight: bold;
+}
+
+.meta {
+  font-size: 0.9rem;
+  margin-top: 0.3rem;
+}
+</style>
 </head>
 
 <body>
-  <h2>Robert Games Schedule</h2>
 
-  <button onclick="window.print()">Print</button>
+<h2>Robert Games Schedule</h2>
+<button onclick="window.print()">Print</button>
 
-  <div id="legend"></div>
-  <div id="events">Loading...</div>
+<div id="legend"></div>
+<div id="events">Loading...</div>
 
-  <script>
-    const API_URL = "https://r-games.veinoffeeling.workers.dev/games";
+<script>
+const API_URL = "https://r-games.veinoffeeling.workers.dev";
 
-    const sourceColors = {
-      team1: "#000000",
-      team2: "#9c9c9c",
-      team3: "#ff9800",
-      default: "#616161"
-    };
+// DISPLAY NAMES
+const SOURCE_NAMES = {
+  team1: "HVJV",
+  team2: "WLJV",
+  default: "Other"
+};
 
-    let allEvents = [];
-    let activeSources = new Set();
+// COLORS
+const COLORS = {
+  team1: "#000000",
+  team2: "#969696",
+  default: "#616161"
+};
 
-    async function loadEvents() {
-      try {
-        const res = await fetch(API_URL);
-        const data = await res.json();
+// LOGOS (REPLACE WITH YOUR REAL URLs)
+const LOGOS = {
+  team1: "https://raw.githubusercontent.com/coachskrause/r-games/refs/heads/main/HV-50.png",
+  team2: "https://raw.githubusercontent.com/coachskrause/r-games/refs/heads/main/WLN-50.png"
+};
 
-        allEvents = data;
+let allEvents = [];
+let activeSources = new Set();
 
-        // Collect all sources       
-        const sources = [...new Set(allEvents.map(e => e.source || "default"))];
-        sources.forEach(s => activeSources.add(s));
+// FORCE BUTTON ORDER
+const SOURCE_ORDER = ["team1", "team2"];
 
-        renderLegend(sources);
-        renderEvents();
-      } catch (err) {
-        console.error(err);
-        document.getElementById("events").innerText = "Failed to load events.";
-      }
-    }
+function formatDate(dateStr) {
+  const d = new Date(dateStr);
 
-    function renderLegend(sources) {
-      const legend = document.getElementById("legend");
+  return d.toLocaleString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true
+  });
+}
 
-      legend.innerHTML = sources.map(source => {
-        const color = sourceColors[source] || sourceColors.default;
+function mapsLink(location) {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
+}
 
-        return `
-          <div class="legend-item" 
-               style="background:${color}"
-               onclick="toggleSource('${source}', this)">
-            ${source}
-          </div>
-        `;
-      }).join("");
-    }
+async function load() {
+  const res = await fetch(API_URL);
+  const data = await res.json();
 
-    function toggleSource(source, el) {
-      if (activeSources.has(source)) {
-        activeSources.delete(source);
-        el.classList.add("disabled");
-      } else {
-        activeSources.add(source);
-        el.classList.remove("disabled");
-      }
+  allEvents = data;
 
-      renderEvents();
-    }
+  const sources = [...new Set(allEvents.map(e => e.source || "default"))];
 
-    function renderEvents() {
-      const container = document.getElementById("events");
+  const orderedSources = SOURCE_ORDER.filter(s => sources.includes(s));
 
-      const filtered = allEvents.filter(e =>
-        activeSources.has(e.source || "default")
-      );
+  orderedSources.forEach(s => activeSources.add(s));
 
-      if (!filtered.length) {
-        container.innerHTML = "No events to display.";
-        return;
-      }
+  renderLegend(orderedSources);
+  renderEvents();
+}
 
-      const html = filtered.map(e => {
-        const title = e.title || "No Title";
+function renderLegend(sources) {
+  const legend = document.getElementById("legend");
 
-        const start = e.start
-          ? new Date(e.start).toLocaleString()
-          : "No date";
+  legend.innerHTML = sources.map(source => {
+    const color = COLORS[source] || COLORS.default;
+    const name = SOURCE_NAMES[source] || source;
+    const logo = LOGOS[source];
 
-        const color = sourceColors[e.source] || sourceColors.default;
+    return `
+      <div class="legend-item"
+           style="background:${color}"
+           onclick="toggleSource('${source}', this)">
+        ${logo ? `<img src="${logo}" alt="">` : ""}
+        ${name}
+      </div>
+    `;
+  }).join("");
+}
 
-        const maps = e.location
+function toggleSource(source, el) {
+  if (activeSources.has(source)) {
+    activeSources.delete(source);
+    el.classList.add("disabled");
+  } else {
+    activeSources.add(source);
+    el.classList.remove("disabled");
+  }
+
+  renderEvents();
+}
+
+function renderEvents() {
+  const container = document.getElementById("events");
+
+  const filtered = allEvents.filter(e =>
+    activeSources.has(e.source || "default")
+  );
+
+  if (!filtered.length) {
+    container.innerHTML = "No events to display";
+    return;
+  }
+
+  const html = filtered.map(e => {
+    const color = COLORS[e.source] || COLORS.default;
+
+    return `
+      <div class="event" style="border-left-color:${color}">
+        
+        <div class="title-row">
+          ${LOGOS[e.source] ? `<img src="${LOGOS[e.source]}" alt="">` : ""}
+          <div class="title">${e.title}</div>
+        </div>
+
+        <div class="meta">${formatDate(e.start)}</div>
+
+        ${
+          e.location
           ? `<div class="meta">
-              📍 <a href="https://www.google.com/maps?q=${encodeURIComponent(e.location)}" target="_blank">
-                ${e.location}
-              </a>
-            </div>`
-          : "";
+               <a href="${mapsLink(e.location)}" target="_blank">
+                 ${e.location}
+               </a>
+             </div>`
+          : ""
+        }
 
-        return `
-          <div class="event" style="border-left-color: ${color}">
-            <div class="title">${title}</div>
-            <div class="meta"><strong>${start}</strong></div>
-            ${maps}
-          </div>
-        `;
-      }).join("");
+      </div>
+    `;
+  }).join("");
 
-      container.innerHTML = html;
-    }
+  container.innerHTML = html;
+}
 
-    loadEvents();
-  </script>
+load();
+</script>
+
 </body>
 </html>
