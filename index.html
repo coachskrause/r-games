@@ -18,14 +18,33 @@ h2 {
   color: #d32f2f;
 }
 
+.button-bar {
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
 button {
-  display: block;
-  margin: 0 auto 1rem auto;
   padding: 0.6rem 1rem;
   border: none;
+  border-radius: 5px;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.print-btn {
   background: #d32f2f;
   color: white;
-  border-radius: 5px;
+}
+
+.refresh-btn {
+  background: #1976d2;
+  color: white;
+  margin-left: 10px;
+}
+
+.refresh-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 #legend {
@@ -50,7 +69,6 @@ button {
 .legend-item img {
   width: 18px;
   height: 18px;
-  object-fit: contain;
 }
 
 .legend-item.disabled {
@@ -84,7 +102,6 @@ button {
 .title-row img {
   width: 22px;
   height: 22px;
-  object-fit: contain;
 }
 
 .title {
@@ -111,7 +128,11 @@ button {
 <body>
 
 <h2>Robert Games Schedule</h2>
-<button onclick="window.print()">Print</button>
+
+<div class="button-bar">
+  <button class="print-btn" onclick="window.print()">Print</button>
+  <button id="refreshBtn" class="refresh-btn" onclick="refreshEvents()">Refresh</button>
+</div>
 
 <div id="legend"></div>
 <div id="events">Loading...</div>
@@ -119,10 +140,9 @@ button {
 <script>
 const API_URL = "https://r-games.veinoffeeling.workers.dev";
 
-// DISPLAY NAMES
 const SOURCE_NAMES = {
-  team1: "HVJV",
-  team2: "WLJV",
+  team1: "Huron Valley JV",
+  team2: "Walled Lake JV",
   default: "Other"
 };
 
@@ -133,7 +153,6 @@ const COLORS = {
   default: "#616161"
 };
 
-// LOGOS
 const LOGOS = {
   team1: "https://raw.githubusercontent.com/coachskrause/r-games/refs/heads/main/HV-50.png",
   team2: "https://raw.githubusercontent.com/coachskrause/r-games/refs/heads/main/WLN-50.png"
@@ -144,13 +163,13 @@ let activeSources = new Set();
 
 const SOURCE_ORDER = ["team1", "team2"];
 
-// ✅ Detect all-day
+// Detect all-day
 function isAllDay(dateStr) {
   const d = new Date(dateStr);
-  return d.getHours() === 0 && d.getMinutes() === 0 && d.getSeconds() === 0;
+  return d.getHours() === 0 && d.getMinutes() === 0;
 }
 
-// ✅ Format date with TBD support
+// Format date
 function formatDate(dateStr) {
   const d = new Date(dateStr);
 
@@ -161,13 +180,12 @@ function formatDate(dateStr) {
   });
 
   if (isAllDay(dateStr)) {
-    return `${datePart}`;
+    return `${datePart} (TBD)`;
   }
 
   const timePart = d.toLocaleTimeString(undefined, {
     hour: "numeric",
-    minute: "2-digit",
-    hour12: true
+    minute: "2-digit"
   });
 
   return `${datePart}, ${timePart}`;
@@ -177,11 +195,13 @@ function mapsLink(location) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
 }
 
-async function load() {
-  const res = await fetch(API_URL);
+async function load(useRefresh = false) {
+  const url = useRefresh ? API_URL + "?refresh=1" : API_URL;
+
+  const res = await fetch(url);
   const data = await res.json();
 
-  // ✅ SORT: date first, then push TBD to bottom
+  // Sort (TBD last)
   data.sort((a, b) => {
     const aDate = new Date(a.start);
     const bDate = new Date(b.start);
@@ -198,10 +218,25 @@ async function load() {
   const sources = [...new Set(allEvents.map(e => e.source || "default"))];
   const orderedSources = SOURCE_ORDER.filter(s => sources.includes(s));
 
-  orderedSources.forEach(s => activeSources.add(s));
+  // Only initialize once
+  if (activeSources.size === 0) {
+    orderedSources.forEach(s => activeSources.add(s));
+  }
 
   renderLegend(orderedSources);
   renderEvents();
+}
+
+// Refresh button logic
+async function refreshEvents() {
+  const btn = document.getElementById("refreshBtn");
+  btn.disabled = true;
+  btn.innerText = "Refreshing...";
+
+  await load(true);
+
+  btn.disabled = false;
+  btn.innerText = "Refresh";
 }
 
 function renderLegend(sources) {
@@ -216,7 +251,7 @@ function renderLegend(sources) {
       <div class="legend-item"
            style="background:${color}"
            onclick="toggleSource('${source}', this)">
-        ${logo ? `<img src="${logo}" alt="">` : ""}
+        ${logo ? `<img src="${logo}">` : ""}
         ${name}
       </div>
     `;
@@ -247,7 +282,7 @@ function renderEvents() {
     return;
   }
 
-  const html = filtered.map(e => {
+  container.innerHTML = filtered.map(e => {
     const color = COLORS[e.source] || COLORS.default;
     const tbd = isAllDay(e.start);
 
@@ -255,13 +290,11 @@ function renderEvents() {
       <div class="event ${tbd ? "tbd" : ""}" style="border-left-color:${color}">
         
         <div class="title-row">
-          ${LOGOS[e.source] ? `<img src="${LOGOS[e.source]}" alt="">` : ""}
+          ${LOGOS[e.source] ? `<img src="${LOGOS[e.source]}">` : ""}
           <div class="title">${e.title}</div>
         </div>
 
-        <div class="meta">
-          ${formatDate(e.start)} ${tbd ? "(TBD)" : ""}
-        </div>
+        <div class="meta">${formatDate(e.start)}</div>
 
         ${tbd ? `<div class="badge">Game Time Not Set</div>` : ""}
 
@@ -278,10 +311,9 @@ function renderEvents() {
       </div>
     `;
   }).join("");
-
-  container.innerHTML = html;
 }
 
+// Initial load
 load();
 </script>
 
