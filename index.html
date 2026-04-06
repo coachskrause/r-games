@@ -105,30 +105,26 @@ button {
 
 <button onclick="refreshData()">Refresh</button>
 
-<div id="lastUpdated">Loading...</div>
-
+<div id="lastUpdated"></div>
 <div id="legend"></div>
-<div id="events">Loading...</div>
+<div id="events"></div>
 
 <script>
 const API_URL = "https://r-games.veinoffeeling.workers.dev";
 
-// STORAGE KEYS
 const STORAGE_KEY = "games_cache";
 const STORAGE_TS = "games_cache_ts";
 
 // DISPLAY NAMES
 const SOURCE_NAMES = {
   team1: "Huron Valley JV",
-  team2: "Walled Lake JV",
-  default: "Other"
+  team2: "Walled Lake JV"
 };
 
 // COLORS
 const COLORS = {
   team1: "#000000",
-  team2: "#969696",
-  default: "#616161"
+  team2: "#969696"
 };
 
 // LOGOS
@@ -136,6 +132,7 @@ const LOGOS = {
   team1: "https://raw.githubusercontent.com/coachskrause/r-games/refs/heads/main/HV-50.png",
   team2: "https://raw.githubusercontent.com/coachskrause/r-games/refs/heads/main/WLN-50.png"
 };
+
 
 const SOURCE_ORDER = ["team1", "team2"];
 
@@ -158,25 +155,30 @@ function mapsLink(location) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
 }
 
-function saveCache(events, ts) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
-  localStorage.setItem(STORAGE_TS, ts);
-}
-
-function loadCache() {
+// ---------- CACHE LOAD (INSTANT RENDER) ----------
+function loadCacheImmediate() {
   try {
-    const events = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    const cached = localStorage.getItem(STORAGE_KEY);
     const ts = localStorage.getItem(STORAGE_TS);
 
-    if (events && events.length) {
-      allEvents = events;
-      updateLastUpdated(ts + " (cached)");
-      setupSources();
-      renderEvents();
-    }
-  } catch {}
+    if (!cached) return false;
+
+    const events = JSON.parse(cached);
+    if (!events || !events.length) return false;
+
+    allEvents = events;
+    updateLastUpdated(ts, true);
+
+    setupSources();
+    renderEvents();
+
+    return true;
+  } catch {
+    return false;
+  }
 }
 
+// ---------- FETCH ----------
 async function load(force = false) {
   try {
     const url = force ? API_URL + "?refresh=1" : API_URL;
@@ -184,38 +186,37 @@ async function load(force = false) {
     const res = await fetch(url);
     const data = await res.json();
 
-    const events = data.events || [];
+    const newEvents = data.events || [];
 
-    // 🚨 ONLY overwrite if we got GOOD data
-    if (events.length > 0) {
-      allEvents = events;
+    if (!newEvents.length) return;
 
-      saveCache(events, data.lastUpdated);
-      updateLastUpdated(data.lastUpdated);
+    // 🔥 ONLY UPDATE IF DATA CHANGED
+    const old = localStorage.getItem(STORAGE_KEY);
+    const newStr = JSON.stringify(newEvents);
 
-      setupSources();
-      renderEvents();
-    }
+    if (old === newStr) return;
+
+    // Update cache + UI
+    localStorage.setItem(STORAGE_KEY, newStr);
+    localStorage.setItem(STORAGE_TS, data.lastUpdated);
+
+    allEvents = newEvents;
+
+    updateLastUpdated(data.lastUpdated);
+    setupSources();
+    renderEvents();
 
   } catch (err) {
-    console.error("Fetch failed, using cache");
+    console.log("Fetch failed, using cache");
   }
 }
 
-function setupSources() {
-  const sources = [...new Set(allEvents.map(e => e.source || "default"))];
-  const ordered = SOURCE_ORDER.filter(s => sources.includes(s));
-
-  activeSources = new Set(ordered);
-
-  renderLegend(ordered);
-}
-
-function updateLastUpdated(ts) {
+function updateLastUpdated(ts, cached = false) {
   if (!ts) return;
 
+  const d = new Date(ts);
   document.getElementById("lastUpdated").innerText =
-    "Last updated: " + new Date(ts).toLocaleString();
+    "Last updated: " + d.toLocaleString() + (cached ? " (cached)" : "");
 }
 
 function refreshData() {
@@ -223,23 +224,25 @@ function refreshData() {
   load(true);
 }
 
+function setupSources() {
+  const sources = [...new Set(allEvents.map(e => e.source))];
+  const ordered = SOURCE_ORDER.filter(s => sources.includes(s));
+
+  activeSources = new Set(ordered);
+  renderLegend(ordered);
+}
+
 function renderLegend(sources) {
   const legend = document.getElementById("legend");
 
-  legend.innerHTML = sources.map(source => {
-    const color = COLORS[source];
-    const name = SOURCE_NAMES[source];
-    const logo = LOGOS[source];
-
-    return `
-      <div class="legend-item"
-           style="background:${color}"
-           onclick="toggleSource('${source}', this)">
-        <img src="${logo}">
-        ${name}
-      </div>
-    `;
-  }).join("");
+  legend.innerHTML = sources.map(source => `
+    <div class="legend-item"
+         style="background:${COLORS[source]}"
+         onclick="toggleSource('${source}', this)">
+      <img src="${LOGOS[source]}">
+      ${SOURCE_NAMES[source]}
+    </div>
+  `).join("");
 }
 
 function toggleSource(source, el) {
@@ -258,45 +261,41 @@ function renderEvents() {
   const container = document.getElementById("events");
 
   const filtered = allEvents.filter(e =>
-    activeSources.has(e.source || "default")
+    activeSources.has(e.source)
   );
 
-  if (!filtered.length) {
-    // 🚨 DO NOTHING — KEEP OLD CONTENT
-    return;
-  }
+  if (!filtered.length) return;
 
-  const html = filtered.map(e => {
-    const color = COLORS[e.source];
-
-    return `
-      <div class="event" style="border-left-color:${color}">
-        <div class="title-row">
-          <img src="${LOGOS[e.source]}">
-          <div class="title">${e.title}</div>
-        </div>
-
-        <div class="meta">${formatDate(e.start)}</div>
-
-        ${
-          e.location
-          ? `<div class="meta">
-               <a href="${mapsLink(e.location)}" target="_blank">
-                 ${e.location}
-               </a>
-             </div>`
-          : ""
-        }
+  container.innerHTML = filtered.map(e => `
+    <div class="event" style="border-left-color:${COLORS[e.source]}">
+      <div class="title-row">
+        <img src="${LOGOS[e.source]}">
+        <div class="title">${e.title}</div>
       </div>
-    `;
-  }).join("");
 
-  container.innerHTML = html;
+      <div class="meta">${formatDate(e.start)}</div>
+
+      ${
+        e.location
+        ? `<div class="meta">
+             <a href="${mapsLink(e.location)}" target="_blank">
+               ${e.location}
+             </a>
+           </div>`
+        : ""
+      }
+    </div>
+  `).join("");
 }
 
-// 🚀 LOAD FLOW
-loadCache();   // instant load
-load();        // background refresh
+// ---------- INIT ----------
+const hasCache = loadCacheImmediate();
+
+if (!hasCache) {
+  document.getElementById("events").innerText = "Loading...";
+}
+
+load(); // background refresh
 </script>
 
 </body>
