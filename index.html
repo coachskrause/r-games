@@ -96,6 +96,17 @@ button {
   font-size: 0.9rem;
   margin-top: 0.3rem;
 }
+
+.badge {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 3px 8px;
+  font-size: 0.75rem;
+  border-radius: 4px;
+  background: #ff9800;
+  color: white;
+  font-weight: bold;
+}
 </style>
 </head>
 
@@ -133,7 +144,6 @@ const LOGOS = {
   team2: "https://raw.githubusercontent.com/coachskrause/r-games/refs/heads/main/WLN-50.png"
 };
 
-
 const SOURCE_ORDER = ["team1", "team2"];
 
 let allEvents = [];
@@ -155,7 +165,7 @@ function mapsLink(location) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
 }
 
-// ---------- CACHE LOAD (INSTANT RENDER) ----------
+// ---------- INSTANT CACHE LOAD ----------
 function loadCacheImmediate() {
   try {
     const cached = localStorage.getItem(STORAGE_KEY);
@@ -187,16 +197,13 @@ async function load(force = false) {
     const data = await res.json();
 
     const newEvents = data.events || [];
-
     if (!newEvents.length) return;
 
-    // 🔥 ONLY UPDATE IF DATA CHANGED
     const old = localStorage.getItem(STORAGE_KEY);
     const newStr = JSON.stringify(newEvents);
 
     if (old === newStr) return;
 
-    // Update cache + UI
     localStorage.setItem(STORAGE_KEY, newStr);
     localStorage.setItem(STORAGE_TS, data.lastUpdated);
 
@@ -215,6 +222,7 @@ function updateLastUpdated(ts, cached = false) {
   if (!ts) return;
 
   const d = new Date(ts);
+
   document.getElementById("lastUpdated").innerText =
     "Last updated: " + d.toLocaleString() + (cached ? " (cached)" : "");
 }
@@ -257,6 +265,7 @@ function toggleSource(source, el) {
   renderEvents();
 }
 
+// ---------- UPDATED EVENT RENDER ----------
 function renderEvents() {
   const container = document.getElementById("events");
 
@@ -266,26 +275,32 @@ function renderEvents() {
 
   if (!filtered.length) return;
 
-  container.innerHTML = filtered.map(e => `
-    <div class="event" style="border-left-color:${COLORS[e.source]}">
-      <div class="title-row">
-        <img src="${LOGOS[e.source]}">
-        <div class="title">${e.title}</div>
+  container.innerHTML = filtered.map(e => {
+    const isTBD = !e.start || e.start.endsWith("T00:00:00");
+
+    return `
+      <div class="event" style="border-left-color:${COLORS[e.source]}">
+        <div class="title-row">
+          <img src="${LOGOS[e.source]}">
+          <div class="title">${e.title}</div>
+        </div>
+
+        ${isTBD ? `<div class="badge">Game Time Not Set</div>` : ""}
+
+        <div class="meta">${formatDate(e.start)}</div>
+
+        ${
+          e.location
+          ? `<div class="meta">
+               <a href="${mapsLink(e.location)}" target="_blank">
+                 ${e.location}
+               </a>
+             </div>`
+          : ""
+        }
       </div>
-
-      <div class="meta">${formatDate(e.start)}</div>
-
-      ${
-        e.location
-        ? `<div class="meta">
-             <a href="${mapsLink(e.location)}" target="_blank">
-               ${e.location}
-             </a>
-           </div>`
-        : ""
-      }
-    </div>
-  `).join("");
+    `;
+  }).join("");
 }
 
 // ---------- INIT ----------
