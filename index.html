@@ -18,6 +18,14 @@ h2 {
   color: #d32f2f;
 }
 
+.section-title {
+  max-width: 700px;
+  margin: 1.5rem auto 0.5rem auto;
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: #444;
+}
+
 button {
   display: block;
   margin: 0 auto 0.5rem auto;
@@ -64,7 +72,7 @@ button {
   opacity: 0.4;
 }
 
-#events {
+#events, #pastEvents {
   max-width: 700px;
   margin: 0 auto;
 }
@@ -77,7 +85,6 @@ button {
   border-left: 6px solid;
 }
 
-/* ✅ DASHED BORDER */
 .event.tbd {
   border-left-style: dashed !important;
 }
@@ -123,7 +130,13 @@ button {
 
 <div id="lastUpdated"></div>
 <div id="legend"></div>
+
 <div id="events"></div>
+
+<div id="pastContainer" style="display:none;">
+  <div class="section-title">Past Games</div>
+  <div id="pastEvents"></div>
+</div>
 
 <script>
 const API_URL = "https://r-games.veinoffeeling.workers.dev";
@@ -155,7 +168,7 @@ const SOURCE_ORDER = ["team1", "team2"];
 let allEvents = [];
 let activeSources = new Set();
 
-// ✅ FIXED DATE FORMATTER
+// ---------- DATE FORMAT ----------
 function formatDate(dateStr) {
   if (!dateStr) return "No date";
 
@@ -191,7 +204,6 @@ function loadCacheImmediate() {
     allEvents = events;
 
     updateLastUpdated(ts, true);
-
     setupSources();
     renderEvents();
 
@@ -226,7 +238,7 @@ async function load(force = false) {
     setupSources();
     renderEvents();
 
-  } catch (err) {
+  } catch {
     console.log("Fetch failed, using cache");
   }
 }
@@ -245,6 +257,7 @@ function refreshData() {
   load(true);
 }
 
+// ---------- SOURCES ----------
 function setupSources() {
   const sources = [...new Set(allEvents.map(e => e.source))];
   const ordered = SOURCE_ORDER.filter(s => sources.includes(s));
@@ -280,15 +293,22 @@ function toggleSource(source, el) {
 
 // ---------- EVENTS ----------
 function renderEvents() {
-  const container = document.getElementById("events");
+  const now = new Date();
 
   const filtered = allEvents.filter(e =>
     activeSources.has(e.source)
   );
 
-  if (!filtered.length) return;
+  const upcoming = [];
+  const past = [];
 
-  container.innerHTML = filtered.map(e => {
+  filtered.forEach(e => {
+    const d = new Date(e.start);
+    if (d >= now) upcoming.push(e);
+    else past.push(e);
+  });
+
+  const renderList = (list) => list.map(e => {
     const d = new Date(e.start);
 
     const isTBD =
@@ -299,7 +319,6 @@ function renderEvents() {
 
     return `
       <div class="event ${isTBD ? 'tbd' : ''}" style="border-left-color:${COLORS[e.source]}">
-
         <div class="title-row">
           <img src="${LOGOS[e.source]}">
           <div class="title">${e.title}</div>
@@ -318,10 +337,17 @@ function renderEvents() {
              </div>`
           : ""
         }
-
       </div>
     `;
   }).join("");
+
+  document.getElementById("events").innerHTML =
+    upcoming.length ? renderList(upcoming) : "No upcoming games";
+
+  if (past.length) {
+    document.getElementById("pastContainer").style.display = "block";
+    document.getElementById("pastEvents").innerHTML = renderList(past);
+  }
 }
 
 // ---------- INIT ----------
