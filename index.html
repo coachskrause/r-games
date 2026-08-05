@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -24,6 +25,10 @@ h2 {
   font-size: 1.1rem;
   font-weight: bold;
   color: #444;
+}
+
+summary.section-title {
+  cursor: pointer;
 }
 
 button {
@@ -72,7 +77,8 @@ button {
   opacity: 0.4;
 }
 
-#events, #pastEvents {
+#events,
+#pastEvents {
   max-width: 700px;
   margin: 0 auto;
 }
@@ -133,10 +139,10 @@ button {
 
 <div id="events"></div>
 
-<div id="pastContainer" style="display:none;">
-  <div class="section-title">Past Games</div>
+<details id="pastContainer" style="display:none;">
+  <summary class="section-title">Past Games</summary>
   <div id="pastEvents"></div>
-</div>
+</details>
 
 <script>
 const API_URL = "https://r-games.veinoffeeling.workers.dev";
@@ -347,6 +353,8 @@ function renderEvents() {
   if (past.length) {
     document.getElementById("pastContainer").style.display = "block";
     document.getElementById("pastEvents").innerHTML = renderList(past);
+  } else {
+    document.getElementById("pastContainer").style.display = "none";
   }
 }
 
