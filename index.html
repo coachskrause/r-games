@@ -76,8 +76,7 @@ button {
   opacity: 0.4;
 }
 
-#events,
-#pastEvents {
+#events, #pastEvents {
   max-width: 700px;
   margin: 0 auto;
 }
@@ -131,7 +130,7 @@ button {
 
 <h2>Robert Games Schedule</h2>
 
-<button onclick="refreshData()">Refresh</button>
+<button id="refreshButton" onclick="refreshData()">Refresh</button>
 
 <div id="lastUpdated"></div>
 <div id="legend"></div>
@@ -146,14 +145,11 @@ button {
 <script>
 const API_URL = "https://r-games.veinoffeeling.workers.dev";
 
-// STORAGE KEYS
-const STORAGE_KEY = "games_cache";
-const STORAGE_TS = "games_cache_ts";
+const refreshButton = document.getElementById("refreshButton");
 
-// DISPLAY NAMES
 const SOURCE_NAMES = {
-  //team1: "Huron Valley JV",
-  team2: "OCP"
+  //team1: "Walled Lake Varsity",
+  team2: "OCP Knights"
 };
 
 // COLORS
