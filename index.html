@@ -145,8 +145,6 @@ button {
 <script>
 const API_URL = "https://r-games.veinoffeeling.workers.dev";
 
-const refreshButton = document.getElementById("refreshButton");
-
 const SOURCE_NAMES = {
   //team1: "Walled Lake Varsity",
   team2: "OCP Knights"
@@ -191,29 +189,6 @@ function mapsLink(location) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
 }
 
-// ---------- CACHE ----------
-function loadCacheImmediate() {
-  try {
-    const cached = localStorage.getItem(STORAGE_KEY);
-    const ts = localStorage.getItem(STORAGE_TS);
-
-    if (!cached) return false;
-
-    const events = JSON.parse(cached);
-    if (!events || !events.length) return false;
-
-    allEvents = events;
-
-    updateLastUpdated(ts, true);
-    setupSources();
-    renderEvents();
-
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 // ---------- FETCH ----------
 async function load(force = false) {
   try {
@@ -225,14 +200,6 @@ async function load(force = false) {
     const newEvents = data.events || [];
     if (!newEvents.length) return;
 
-    const old = localStorage.getItem(STORAGE_KEY);
-    const newStr = JSON.stringify(newEvents);
-
-    if (old === newStr) return;
-
-    localStorage.setItem(STORAGE_KEY, newStr);
-    localStorage.setItem(STORAGE_TS, data.lastUpdated);
-
     allEvents = newEvents;
 
     updateLastUpdated(data.lastUpdated);
@@ -240,7 +207,7 @@ async function load(force = false) {
     renderEvents();
 
   } catch {
-    console.log("Fetch failed, using cache");
+    console.log("Fetch failed");
   }
 }
 
@@ -253,9 +220,9 @@ function updateLastUpdated(ts, cached = false) {
     "Last updated: " + d.toLocaleString() + (cached ? " (cached)" : "");
 }
 
-function refreshData() {
+async function refreshData() {
   document.getElementById("lastUpdated").innerText = "Refreshing...";
-  load(true);
+  await load(true);
 }
 
 // ---------- SOURCES ----------
@@ -354,13 +321,12 @@ function renderEvents() {
 }
 
 // ---------- INIT ----------
-const hasCache = loadCacheImmediate();
-
-if (!hasCache) {
-  document.getElementById("events").innerText = "Loading...";
-}
+document.getElementById("events").innerText = "Loading...";
 
 load();
+
+// Check for server-side updates every 5 minutes
+setInterval(load, 300000);
 </script>
 
 </body>
