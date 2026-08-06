@@ -198,7 +198,6 @@ async function load(force = false) {
     const data = await res.json();
 
     const newEvents = data.events || [];
-    if (!newEvents.length) return;
 
     allEvents = newEvents;
 
@@ -310,7 +309,7 @@ function renderEvents() {
   }).join("");
 
   document.getElementById("events").innerHTML =
-    upcoming.length ? renderList(upcoming) : "No upcoming games";
+    upcoming.length ? renderList(upcoming) : "No Games Scheduled";
 
   if (past.length) {
     document.getElementById("pastContainer").style.display = "block";
