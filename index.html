@@ -1,4 +1,3 @@
-<!-- Last Updated: August 6, 2026 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -77,7 +76,8 @@ button {
   opacity: 0.4;
 }
 
-#events, #pastEvents {
+#events,
+#pastEvents {
   max-width: 700px;
   margin: 0 auto;
 }
@@ -131,7 +131,7 @@ button {
 
 <h2>Robert Games Schedule</h2>
 
-<button id="refreshButton" onclick="refreshData()">Refresh</button>
+<button onclick="refreshData()">Refresh</button>
 
 <div id="lastUpdated"></div>
 <div id="legend"></div>
@@ -146,14 +146,19 @@ button {
 <script>
 const API_URL = "https://r-games.veinoffeeling.workers.dev";
 
+// STORAGE KEYS
+const STORAGE_KEY = "games_cache";
+const STORAGE_TS = "games_cache_ts";
+
+// DISPLAY NAMES
 const SOURCE_NAMES = {
-  //team1: "Walled Lake Varsity",
-  team2: "OCP Knights"
+  //team1: "Huron Valley JV",
+  team2: "OCP"
 };
 
 // COLORS
 const COLORS = {
-  //team1: "#000000",
+  team1: "#000000",
   team2: "#BFBFBF"
 };
 
@@ -163,8 +168,7 @@ const LOGOS = {
   team2: "https://raw.githubusercontent.com/coachskrause/r-games/refs/heads/main/OCP-50.png"
 };
 
-//const SOURCE_ORDER = ["team1", "team2"];
-const SOURCE_ORDER = ["team2"];
+const SOURCE_ORDER = ["team1", "team2"];
 
 let allEvents = [];
 let activeSources = new Set();
@@ -191,6 +195,29 @@ function mapsLink(location) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
 }
 
+// ---------- CACHE ----------
+function loadCacheImmediate() {
+  try {
+    const cached = localStorage.getItem(STORAGE_KEY);
+    const ts = localStorage.getItem(STORAGE_TS);
+
+    if (!cached) return false;
+
+    const events = JSON.parse(cached);
+    if (!events || !events.length) return false;
+
+    allEvents = events;
+
+    updateLastUpdated(ts, true);
+    setupSources();
+    renderEvents();
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // ---------- FETCH ----------
 async function load(force = false) {
   try {
@@ -200,6 +227,15 @@ async function load(force = false) {
     const data = await res.json();
 
     const newEvents = data.events || [];
+    if (!newEvents.length) return;
+
+    const old = localStorage.getItem(STORAGE_KEY);
+    const newStr = JSON.stringify(newEvents);
+
+    if (old === newStr) return;
+
+    localStorage.setItem(STORAGE_KEY, newStr);
+    localStorage.setItem(STORAGE_TS, data.lastUpdated);
 
     allEvents = newEvents;
 
@@ -208,7 +244,7 @@ async function load(force = false) {
     renderEvents();
 
   } catch {
-    console.log("Fetch failed");
+    console.log("Fetch failed, using cache");
   }
 }
 
@@ -221,9 +257,9 @@ function updateLastUpdated(ts, cached = false) {
     "Last updated: " + d.toLocaleString() + (cached ? " (cached)" : "");
 }
 
-async function refreshData() {
+function refreshData() {
   document.getElementById("lastUpdated").innerText = "Refreshing...";
-  await load(true);
+  load(true);
 }
 
 // ---------- SOURCES ----------
@@ -311,7 +347,7 @@ function renderEvents() {
   }).join("");
 
   document.getElementById("events").innerHTML =
-    upcoming.length ? renderList(upcoming) : "No Games Scheduled";
+    upcoming.length ? renderList(upcoming) : "No upcoming games";
 
   if (past.length) {
     document.getElementById("pastContainer").style.display = "block";
@@ -322,12 +358,13 @@ function renderEvents() {
 }
 
 // ---------- INIT ----------
-document.getElementById("events").innerText = "Loading...";
+const hasCache = loadCacheImmediate();
+
+if (!hasCache) {
+  document.getElementById("events").innerText = "Loading...";
+}
 
 load();
-
-// Check for server-side updates every 5 minutes
-setInterval(load, 300000);
 </script>
 
 </body>
